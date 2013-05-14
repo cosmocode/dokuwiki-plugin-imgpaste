@@ -1,7 +1,7 @@
 base   imgpaste
 author Andreas Gohr
 email  gohr@cosmocode.de
-date   2013-05-13
+date   2013-05-14
 name   imgpaste plugin
-desc   Add images via cut'n'paste
-url    http://www.cosmocode.de
+desc   Add images via cut'n'paste in Chrome
+url    http://www.dokuwiki.org/plugin:imgpaste

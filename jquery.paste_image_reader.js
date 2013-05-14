@@ -37,6 +37,7 @@
                 var clipboardData, found;
                 found = false;
                 clipboardData = event.clipboardData;
+                if(typeof clipboardData === 'undefined') return;
                 return Array.prototype.forEach.call(clipboardData.types, function (type, i) {
                     var file, reader;
                     if (found) {
