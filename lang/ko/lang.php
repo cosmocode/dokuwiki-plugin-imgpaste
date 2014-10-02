@@ -1,6 +1,6 @@
 <?php
 /**
- * English language file for imgpaste plugin
+ * Korean language file for imgpaste plugin
  *
  * @author Andreas Gohr <gohr@cosmocode.de>
  */
