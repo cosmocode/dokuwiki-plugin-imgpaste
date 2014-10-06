@@ -2,7 +2,7 @@
 /**
  * korean language file for imgpaste plugin
  *
- * @author Andreas Gohr <gohr@cosmocode.de>
+ * @sc yoo  <dryoo#live.com>
  */
 
 // keys need to match the config setting name
