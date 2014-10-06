@@ -2,7 +2,7 @@
 /**
  * Korean language file for imgpaste plugin
  *
- * @author Andreas Gohr <gohr@cosmocode.de>
+ * @sc yoo  <dryoo@live.com>
  */
 
 $lang['e_nodata']         = '클립보드에 사진이 없습니다.';
