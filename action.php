@@ -20,7 +20,7 @@ class action_plugin_imgpaste extends DokuWiki_Action_Plugin {
     private $tempdir  = '';
     private $tempfile = '';
 
-    public function register(Doku_Event_Handler &$controller) {
+    public function register(Doku_Event_Handler $controller) {
 
         $controller->register_hook('AJAX_CALL_UNKNOWN', 'BEFORE', $this, 'handle_ajax_call_unknown');
 
