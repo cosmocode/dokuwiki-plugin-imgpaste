@@ -53,13 +53,13 @@ class action_plugin_imgpaste extends DokuWiki_Action_Plugin {
                              '@NS@',
                              '@ID@',
                              '@USER@',
-							 '@PAGE@'
+                             '@PAGE@'
                         ),
                         array(
                              getNS($INPUT->post->str('id')),
                              $INPUT->post->str('id'),
                              $_SERVER['REMOTE_USER'],
-							 noNS($INPUT->post->str('id'))
+                             noNS($INPUT->post->str('id'))
                         ),
                         $filename
                     );
