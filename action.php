@@ -52,7 +52,8 @@ class action_plugin_imgpaste extends DokuWiki_Action_Plugin {
                         array(
                              '@NS@',
                              '@ID@',
-                             '@USER@'
+                             '@USER@',
+							 '@PAGE@'
                         ),
                         array(
                              getNS($INPUT->post->str('id')),
