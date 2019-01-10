@@ -92,7 +92,7 @@ class action_plugin_imgpaste extends DokuWiki_Action_Plugin {
         echo $json->encode(
             array(
                 'message' => $lang['uploadsucc'],
-                'id' => $result
+                'id' => $result . ($this->getConf('nolink') ? '?nolink' : '')
             )
         );
 

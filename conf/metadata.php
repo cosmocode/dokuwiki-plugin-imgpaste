@@ -7,4 +7,4 @@
 
 
 $meta['filename'] = array('string');
-
+$meta['nolink'] = array('onoff');

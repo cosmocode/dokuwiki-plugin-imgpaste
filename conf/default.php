@@ -6,3 +6,4 @@
  */
 
 $conf['filename']    = '@NS@:pasted:%Y%m%d-%H%M%S';
+$conf['nolink']      = 0;
