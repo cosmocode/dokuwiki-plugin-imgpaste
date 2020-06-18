@@ -38,7 +38,25 @@ jQuery(function () {
                     // insert syntax and close dialog
                     success: function (data) {
                         $box.find('.content').addClass('success').text(data.message);
-                        insertAtCarret('wiki__text', '{{:' + data.id + '}}');
+                        if(proseMirrorIsActive)
+                        {
+                            var sel, range;
+                            if (window.getSelection) {
+                                sel = window.getSelection();
+                                if (sel.getRangeAt && sel.rangeCount) {
+                                    range = sel.getRangeAt(0);
+                                    range.deleteContents();
+
+                                    var el = document.createElement("img");
+                                    el.innerHTML = '<img src="/lib/exe/fetch.php?media=' + data.id+'"  class="media"  draggable="true" contenteditable="false">';
+                                    range.insertNode(el);
+                                }
+                            } else if (document.selection && document.selection.createRange) {
+                                document.selection.createRange().text = '{{:' + data.id + '}}';
+                            }
+                        }
+                        else
+                            insertAtCarret('wiki__text', '{{:' + data.id + '}}');
                         $box.delay(500).fadeOut(500, function () {
                             $box.dialog('destroy').remove()
                         });
