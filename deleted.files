@@ -1,0 +1,4 @@
+# This is a list of files that were present in previous releases
+# but were removed later. They should not exist in your installation.
+jquery.paste_image_reader.js
+lang/settings.php
