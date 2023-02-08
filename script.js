@@ -1,67 +1,91 @@
-/* DOKUWIKI:include jquery.paste_image_reader.js */
+(function () {
 
-jQuery(function () {
-    var _didInit = false;
-    function init() {
-        if (!jQuery('#wiki__text').length || _didInit) return;
-        _didInit = true;
-        jQuery('html').pasteImageReader({
-            callback: function (x) {
-                if (!jQuery('#wiki__text').length) return;
+    /**
+     * Handle pasting of files
+     *
+     * @param {ClipboardEvent} e
+     */
+    function handlePaste(e) {
+        if (!document.getElementById('wiki__text')) return; // only when editing
 
-                console.log(x);
+        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (let index in items) {
+            const item = items[index];
 
-                // create dialog
-                var offset = jQuery('.plugin_imagepaste').length * 20;
-                var $box = jQuery('<div><div class="content">' + LANG.plugins.imgpaste.inprogress + '</div></div>');
-                $box.dialog({
-                    title: 'Upload',
-                    dialogClass: 'plugin_imagepaste',
-                    closeOnEscape: false,
-                    resizable: false,
-                    position: {
-                        my: 'center+' + offset + ' center+' + offset
-                    },
-                    appendTo: '.dokuwiki'
-                });
+            if (item.kind === 'file') {
+                const reader = new FileReader();
+                reader.onload = event => {
+                    uploadData(event.target.result);
+                };
+                reader.readAsDataURL(item.getAsFile());
 
-                // upload via AJAX
-                jQuery.ajax({
-                    url: DOKU_BASE + 'lib/exe/ajax.php',
-                    type: 'POST',
-                    data: {
-                        call: 'plugin_imgpaste',
-                        data: x.dataURL,
-                        id: JSINFO.id
-                    },
+                // we had at least one file, prevent default
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }
+    }
 
-                    // insert syntax and close dialog
-                    success: function (data) {
-                        $box.find('.content').addClass('success').text(data.message);
-                        insertAtCarret('wiki__text', '{{:' + data.id + '}}');
-                        $box.delay(500).fadeOut(500, function () {
-                            $box.dialog('destroy').remove()
-                        });
-                    },
+    /**
+     * Uploads the given dataURL to the server and displays a progress dialog
+     *
+     * @param {string} dataURL
+     */
+    function uploadData(dataURL) {
+        // create dialog
+        const offset = document.querySelectorAll('.plugin_imagepaste').length * 3;
+        const box = document.createElement('div');
+        box.className = 'plugin_imagepaste';
+        box.innerText = LANG.plugins.imgpaste.inprogress;
+        box.style.position = 'fixed';
+        box.style.top = offset + 'em';
+        box.style.left = '1em';
+        document.querySelector('.dokuwiki').append(box);
 
-                    // display error and close dialog
-                    error: function (xhr, status, error) {
-                        $box.find('.content').addClass('error').text(error);
-                        $box.delay(1000).fadeOut(500, function () {
-                            $box.dialog('destroy').remove()
-                        });
-                    }
-                });
+        // upload via AJAX
+        jQuery.ajax({
+            url: DOKU_BASE + 'lib/exe/ajax.php',
+            type: 'POST',
+            data: {
+                call: 'plugin_imgpaste',
+                data: dataURL,
+                id: JSINFO.id
+            },
+
+            // insert syntax and close dialog
+            success: function (data) {
+                box.classList.remove('info');
+                box.classList.add('success');
+                box.innerText = data.message;
+                setTimeout(() => {
+                    box.remove();
+                }, 1000);
+                insertSyntax(data.id);
+            },
+
+            // display error and close dialog
+            error: function (xhr, status, error) {
+                box.classList.remove('info');
+                box.classList.add('error');
+                box.innerText = error;
+                setTimeout(() => {
+                    box.remove();
+                }, 1000);
             }
         });
     }
 
-    init();
+    /**
+     * Inserts the given ID into the current editor
+     *
+     * @todo add suppprt for other editors like Prosemirror or CKEditor
+     * @param {string} id The newly uploaded file ID
+     */
+    function insertSyntax(id) {
+        insertAtCarret('wiki__text', '{{:' + id + '}}');
+    }
 
-    // fastwiki plugin support
-    jQuery(window).on('fastwiki:afterSwitch', function(evt, viewMode, isSectionEdit, prevViewMode) {
-        if (viewMode == 'edit' || isSectionEdit) {
-            init();
-        }
-    });
-});
+    // main
+    window.addEventListener('paste', handlePaste);
+
+})();
