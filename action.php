@@ -9,8 +9,16 @@
 class action_plugin_imgpaste extends DokuWiki_Action_Plugin
 {
 
-    private $tempdir = '';
-    private $tempfile = '';
+    protected $tempdir = '';
+    protected $tempfile = '';
+
+    /**
+     * Clean up on destruction
+     */
+    public function __destruct()
+    {
+        $this->clean();
+    }
 
     /** @inheritdoc */
     public function register(Doku_Event_Handler $controller)
@@ -45,25 +53,7 @@ class action_plugin_imgpaste extends DokuWiki_Action_Plugin
 
         // prepare file names
         $tempname = $this->storetemp($data);
-        $filename = $this->getConf('filename');
-        $filename = str_replace(
-            [
-                '@NS@',
-                '@ID@',
-                '@USER@',
-                '@PAGE@',
-            ],
-            [
-                getNS($INPUT->post->str('id')),
-                $INPUT->post->str('id'),
-                $_SERVER['REMOTE_USER'],
-                noNS($INPUT->post->str('id')),
-            ],
-            $filename
-        );
-        $filename = strftime($filename);
-        $filename .= '.' . $mimetypes[$type];
-        $filename = cleanID($filename);
+        $filename = $this->createFileName($INPUT->post->str('id'), $mimetypes[$type], $_SERVER['REMOTE_USER']);
 
         // check ACLs
         $auth = auth_quickaclcheck($filename);
@@ -71,11 +61,11 @@ class action_plugin_imgpaste extends DokuWiki_Action_Plugin
 
         // do the actual saving
         $result = media_save(
-            array(
+            [
                 'name' => $tempname,
                 'mime' => $type,
                 'ext' => $mimetypes[$type],
-            ),
+            ],
             $filename,
             false,
             $auth,
@@ -99,6 +89,37 @@ class action_plugin_imgpaste extends DokuWiki_Action_Plugin
     }
 
     /**
+     * Create the filename for the new file
+     *
+     * @param string $pageid the original page the paste event happend on
+     * @param string $ext the extension of the file
+     * @param string $user the currently logged in user
+     * @return string
+     */
+    protected function createFileName($pageid, $ext, $user)
+    {
+        $filename = $this->getConf('filename');
+        $filename = str_replace(
+            [
+                '@NS@',
+                '@ID@',
+                '@USER@',
+                '@PAGE@',
+            ],
+            [
+                getNS($pageid),
+                $pageid,
+                $user,
+                noNS($pageid),
+            ],
+            $filename
+        );
+        $filename = strftime($filename);
+        $filename .= '.' . $ext;
+        return cleanID($filename);
+    }
+
+    /**
      * Create a temporary file from the given data
      *
      * exits if an error occurs
@@ -106,7 +127,7 @@ class action_plugin_imgpaste extends DokuWiki_Action_Plugin
      * @param $data
      * @return string
      */
-    private function storetemp($data)
+    protected function storetemp($data)
     {
         // store in temporary file
         $this->tempdir = io_mktmpdir();
@@ -119,7 +140,7 @@ class action_plugin_imgpaste extends DokuWiki_Action_Plugin
     /**
      * remove temporary file and directory
      */
-    private function clean()
+    protected function clean()
     {
         if ($this->tempfile && file_exists($this->tempfile)) @unlink($this->tempfile);
         if ($this->tempdir && is_dir($this->tempdir)) @rmdir($this->tempdir);
@@ -135,10 +156,11 @@ class action_plugin_imgpaste extends DokuWiki_Action_Plugin
      * @param int $status HTTP status code
      * @param string $text
      */
-    private function fail($status, $text = '')
+    protected function fail($status, $text = '')
     {
         $this->clean();
         http_status($status, $text);
         exit;
     }
+
 }
