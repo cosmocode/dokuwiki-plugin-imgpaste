@@ -48,15 +48,19 @@ jQuery(function () {
                                     range.deleteContents();
 
                                     var el = document.createElement("img");
-                                    el.innerHTML = '<img src="/lib/exe/fetch.php?media=' + data.id+'"  class="media"  draggable="true" contenteditable="false">';
+                                    el.src='/lib/exe/fetch.php?media=' + data.id;
+                                    el.className="media";
+                                    el.draggable="true";
+                                    el.contentEditable="false";
                                     range.insertNode(el);
                                 }
                             } else if (document.selection && document.selection.createRange) {
                                 document.selection.createRange().text = '{{:' + data.id + '}}';
                             }
                         }
-                        else
+                        else {
                             insertAtCarret('wiki__text', '{{:' + data.id + '}}');
+                        }
                         $box.delay(500).fadeOut(500, function () {
                             $box.dialog('destroy').remove()
                         });
