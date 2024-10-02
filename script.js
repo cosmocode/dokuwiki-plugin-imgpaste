@@ -78,11 +78,17 @@
     /**
      * Inserts the given ID into the current editor
      *
-     * @todo add suppprt for other editors like Prosemirror or CKEditor
+     * @todo add support for other editors like CKEditor
      * @param {string} id The newly uploaded file ID
      */
     function insertSyntax(id) {
-        insertAtCarret('wiki__text', '{{:' + id + '}}');
+        if (proseMirrorIsActive) {
+            const pm = window.Prosemirror.view;
+            const imageNode = pm.state.schema.nodes.image.create({id: id});
+            pm.dispatch(pm.state.tr.replaceSelectionWith(imageNode));
+        } else {
+            insertAtCarret('wiki__text', '{{:' + id + '}}');
+        }
     }
 
     // main
