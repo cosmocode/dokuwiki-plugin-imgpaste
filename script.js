@@ -82,12 +82,20 @@
      * @param {string} id The newly uploaded file ID
      */
     function insertSyntax(id) {
+
+        // TODO remove the "if" check after LinkWizard.createRelativeID() is available in stable (after Kaos)
+        if (typeof LinkWizard !== 'undefined' && typeof LinkWizard.createRelativeID === 'function') {
+            id = LinkWizard.createRelativeID(JSINFO.id, id);
+        } else {
+            id = ':' + id;
+        }
+
         if (typeof window.proseMirrorIsActive !== 'undefined' && window.proseMirrorIsActive === true) {
             const pm = window.Prosemirror.view;
             const imageNode = pm.state.schema.nodes.image.create({id: id});
             pm.dispatch(pm.state.tr.replaceSelectionWith(imageNode));
         } else {
-            insertAtCarret('wiki__text', '{{:' + id + '}}');
+            insertAtCarret('wiki__text', '{{' + id + '}}');
         }
     }
 
