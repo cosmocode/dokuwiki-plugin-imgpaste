@@ -1,12 +1,17 @@
 <?php
 
+use dokuwiki\Extension\ActionPlugin;
+use dokuwiki\Extension\Event;
+use dokuwiki\Extension\EventHandler;
+use dokuwiki\plugin\imgpaste\Exception as PasteException;
+
 /**
  * DokuWiki Plugin imgpaste (Action Component)
  *
  * @license GPL 2 http://www.gnu.org/licenses/gpl-2.0.html
  * @author  Andreas Gohr <gohr@cosmocode.de>
  */
-class action_plugin_imgpaste extends DokuWiki_Action_Plugin
+class action_plugin_imgpaste extends ActionPlugin
 {
 
     protected $tempdir = '';
@@ -21,35 +26,90 @@ class action_plugin_imgpaste extends DokuWiki_Action_Plugin
     }
 
     /** @inheritdoc */
-    public function register(Doku_Event_Handler $controller)
+    public function register(EventHandler $controller)
     {
         $controller->register_hook('AJAX_CALL_UNKNOWN', 'BEFORE', $this, 'handleAjaxUpload');
     }
 
+
     /**
      * Creates a new file from the given data URL
      *
-     * @param Doku_Event $event AJAX_CALL_UNKNOWN
+     * @param Event $event AJAX_CALL_UNKNOWN
      */
-    public function handleAjaxUpload(Doku_Event $event)
+    public function handleAjaxUpload(Event $event)
     {
         if ($event->data != 'plugin_imgpaste') return;
-        global $lang;
+        $event->preventDefault();
+        $event->stopPropagation();
 
-        // get data
         global $INPUT;
-        $data = $INPUT->post->str('data');
-        list($type, $data) = explode(';', $data);
-        if (!$data) $this->fail(400, $this->getLang('e_nodata'));
+        try {
+            if ($INPUT->has('url')) {
+                [$data, $type] = $this->externalUrlToData($INPUT->post->str('url'));
+            } else {
+                [$data, $type] = $this->dataUrlToData($INPUT->post->str('data'));
+            }
+            $result = $this->storeImage($data, $type);
+        } catch (PasteException $e) {
+            $this->clean();
+            http_status($e->getCode(), $e->getMessage());
+            exit;
+        }
+
+        header('Content-Type: application/json');
+        echo json_encode($result);
+    }
+
+    /**
+     * Get the binary data and mime type from a data URL
+     *
+     * @param string $dataUrl
+     * @return array [data, type]
+     * @throws PasteException
+     */
+    protected function dataUrlToData($dataUrl)
+    {
+        list($type, $data) = explode(';', $dataUrl);
+        if (!$data) throw new PasteException($this->getLang('e_nodata'), 400);
 
         // process data encoding
         $type = strtolower(substr($type, 5)); // strip 'data:' prefix
         $data = substr($data, 7); // strip 'base64,' prefix
         $data = base64_decode($data);
+        return [$data, $type];
+    }
+
+    /**
+     * Download the file from an external URL
+     *
+     * @param string $externalUrl
+     * @return array [data, type]
+     * @throws PasteException
+     */
+    protected function externalUrlToData($externalUrl)
+    {
+        global $lang;
+
+        // download the file
+        $http = new \dokuwiki\HTTP\DokuHTTPClient();
+        $data = $http->get($externalUrl);
+        if (!$data) throw new PasteException($lang['uploadfail'], 500);
+        [$type] = explode(';', $http->resp_headers['content-type']);
+        return [$data, $type];
+    }
+
+    /**
+     * @throws PasteException
+     */
+    protected function storeImage($data, $type)
+    {
+        global $lang;
+        global $INPUT;
 
         // check for supported mime type
         $mimetypes = array_flip(getMimeTypes());
-        if (!isset($mimetypes[$type])) $this->fail(415, $lang['uploadwrong']);
+        if (!isset($mimetypes[$type])) throw new PasteException($lang['uploadwrong'], 415);
 
         // prepare file names
         $tempname = $this->storetemp($data);
@@ -57,7 +117,7 @@ class action_plugin_imgpaste extends DokuWiki_Action_Plugin
 
         // check ACLs
         $auth = auth_quickaclcheck($filename);
-        if ($auth < AUTH_UPLOAD) $this->fail(403, $lang['uploadfail']);
+        if ($auth < AUTH_UPLOAD) throw new PasteException($lang['uploadfail'], 403);
 
         // do the actual saving
         $result = media_save(
@@ -71,21 +131,17 @@ class action_plugin_imgpaste extends DokuWiki_Action_Plugin
             $auth,
             'copy'
         );
-        if (is_array($result)) $this->fail(500, $result[0]);
+        if (is_array($result)) throw  new PasteException($result[0], 500);
 
         //Still here? We had a successful upload
         $this->clean();
-        header('Content-Type: application/json');
-        echo json_encode([
+        return [
             'message' => $lang['uploadsucc'],
             'id' => $result,
             'mime' => $type,
             'ext' => $mimetypes[$type],
             'url' => ml($result),
-        ]);
-
-        $event->preventDefault();
-        $event->stopPropagation();
+        ];
     }
 
     /**
@@ -98,6 +154,7 @@ class action_plugin_imgpaste extends DokuWiki_Action_Plugin
      */
     protected function createFileName($pageid, $ext, $user)
     {
+        $unique = '';
         $filename = $this->getConf('filename');
         $filename = str_replace(
             [
@@ -115,8 +172,11 @@ class action_plugin_imgpaste extends DokuWiki_Action_Plugin
             $filename
         );
         $filename = strftime($filename);
-        $filename .= '.' . $ext;
-        return cleanID($filename);
+        $filename = cleanID($filename);
+        while (media_exists($filename . $unique . '.' . $ext)) {
+            $unique = (int)$unique + 1;
+        }
+        return $filename . $unique . '.' . $ext;
     }
 
     /**
@@ -131,9 +191,9 @@ class action_plugin_imgpaste extends DokuWiki_Action_Plugin
     {
         // store in temporary file
         $this->tempdir = io_mktmpdir();
-        if (!$this->tempdir) $this->fail(500);
+        if (!$this->tempdir) throw new PasteException('', 500);
         $this->tempfile = $this->tempdir . '/' . md5($data);
-        if (!io_saveFile($this->tempfile, $data)) $this->fail(500);
+        if (!io_saveFile($this->tempfile, $data)) throw new PasteException('', 500);
         return $this->tempfile;
     }
 
@@ -146,21 +206,6 @@ class action_plugin_imgpaste extends DokuWiki_Action_Plugin
         if ($this->tempdir && is_dir($this->tempdir)) @rmdir($this->tempdir);
         $this->tempfile = '';
         $this->tempdir = '';
-    }
-
-    /**
-     * End the execution with a HTTP error code
-     *
-     * Calls clean
-     *
-     * @param int $status HTTP status code
-     * @param string $text
-     */
-    protected function fail($status, $text = '')
-    {
-        $this->clean();
-        http_status($status, $text);
-        exit;
     }
 
 }
