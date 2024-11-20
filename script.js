@@ -89,6 +89,7 @@
                 result = await downloadData(img.src);
                 img.src = result.url;
                 img.className = 'media';
+                img.dataset.relID = getRelativeID(result.id);
             } catch (e) {
                 console.error(e);
             }
@@ -167,19 +168,29 @@
     }
 
     /**
-     * Inserts the given ID into the current editor
+     * Create a link ID for the given ID, preferrably relative to the current page
      *
-     * @todo add support for other editors like CKEditor
-     * @param {string} id The newly uploaded file ID
+     * @param {string} id
+     * @returns {string}
      */
-    function insertSyntax(id) {
-
+    function getRelativeID(id) {
         // TODO remove the "if" check after LinkWizard.createRelativeID() is available in stable (after Kaos)
         if (typeof LinkWizard !== 'undefined' && typeof LinkWizard.createRelativeID === 'function') {
             id = LinkWizard.createRelativeID(JSINFO.id, id);
         } else {
             id = ':' + id;
         }
+        return id;
+    }
+
+    /**
+     * Inserts the given ID into the current editor
+     *
+     * @todo add support for other editors like CKEditor
+     * @param {string} id The newly uploaded file ID
+     */
+    function insertSyntax(id) {
+        id = getRelativeID(id);
 
         if (typeof window.proseMirrorIsActive !== 'undefined' && window.proseMirrorIsActive === true) {
             const pm = window.Prosemirror.view;
