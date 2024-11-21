@@ -89,7 +89,7 @@
                 result = await downloadData(img.src);
                 img.src = result.url;
                 img.className = 'media';
-                img.dataset.relID = getRelativeID(result.id);
+                img.dataset.relid = getRelativeID(result.id);
             } catch (e) {
                 console.error(e);
             }
