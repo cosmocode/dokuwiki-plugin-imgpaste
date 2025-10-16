@@ -10,7 +10,6 @@
 
         const items = (e.clipboardData || e.originalEvent.clipboardData).items;
 
-
         // When running prosemirror, check for HTML paste first
         if (typeof window.proseMirrorIsActive !== 'undefined' && window.proseMirrorIsActive === true) {
             for (let index in items) {
@@ -82,11 +81,17 @@
         div.innerHTML = html;
         const imgs = Array.from(div.querySelectorAll('img'));
         await Promise.all(imgs.map(async img => {
-            if (!img.src.match(/^https?:\/\//i)) return; // skip non-external images
             if (img.src.startsWith(DOKU_BASE)) return; // skip local images
+            if (!img.src.match(/^(https?:\/\/|data:)/i)) return; // we only handle http(s) and data URLs
 
             try {
-                result = await downloadData(img.src);
+                let result;
+                if (img.src.startsWith('data:')) {
+                    result = await uploadDataURL(img.src);
+                } else {
+                    result = await downloadData(img.src);
+                }
+
                 img.src = result.url;
                 img.className = 'media';
                 img.dataset.relid = getRelativeID(result.id);
@@ -127,44 +132,57 @@
     }
 
     /**
-     * Uploads the given dataURL to the server and displays a progress dialog
+     * Tell the backend to create a file from the given dataURL and return the new ID
+     *
+     * @param {string} dataURL
+     * @returns {Promise<object>} The JSON response
+     */
+    async function uploadDataURL(dataURL) {
+        const formData = new FormData();
+        formData.append('call', 'plugin_imgpaste');
+        formData.append('data', dataURL);
+        formData.append('id', JSINFO.id);
+
+        const response = await fetch(
+            DOKU_BASE + 'lib/exe/ajax.php',
+            {
+                method: 'POST',
+                body: formData
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(response.statusText);
+        }
+
+        return await response.json();
+    }
+
+    /**
+     * Uploads the given dataURL to the server and displays a progress dialog, inserting the syntax on success
      *
      * @param {string} dataURL
      */
-    function uploadData(dataURL) {
+    async function uploadData(dataURL) {
         const box = progressDialog();
 
-        // upload via AJAX
-        jQuery.ajax({
-            url: DOKU_BASE + 'lib/exe/ajax.php',
-            type: 'POST',
-            data: {
-                call: 'plugin_imgpaste',
-                data: dataURL,
-                id: JSINFO.id
-            },
-
-            // insert syntax and close dialog
-            success: function (data) {
-                box.classList.remove('info');
-                box.classList.add('success');
-                box.innerText = data.message;
-                setTimeout(() => {
-                    box.remove();
-                }, 1000);
-                insertSyntax(data.id);
-            },
-
-            // display error and close dialog
-            error: function (xhr, status, error) {
-                box.classList.remove('info');
-                box.classList.add('error');
-                box.innerText = error;
-                setTimeout(() => {
-                    box.remove();
-                }, 1000);
-            }
-        });
+        try {
+            const data = await uploadDataURL(dataURL);
+            box.classList.remove('info');
+            box.classList.add('success');
+            box.innerText = data.message;
+            setTimeout(() => {
+                box.remove();
+            }, 1000);
+            insertSyntax(data.id);
+        } catch (e) {
+            box.classList.remove('info');
+            box.classList.add('error');
+            box.innerText = e.message;
+            setTimeout(() => {
+                box.remove();
+            }, 1000);
+        }
     }
 
     /**
