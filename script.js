@@ -10,8 +10,13 @@
 
         const items = (e.clipboardData || e.originalEvent.clipboardData).items;
 
-        // When running prosemirror, check for HTML paste first
-        if (typeof window.proseMirrorIsActive !== 'undefined' && window.proseMirrorIsActive === true) {
+        // When running prosemirror and pasting into its edit area, check for HTML paste first
+        if (
+            typeof window.proseMirrorIsActive !== 'undefined'
+            && window.proseMirrorIsActive === true
+            && document.activeElement.tagName === 'div'
+            && document.activeElement.classList.contains('Prosemirror-focused')
+        ) {
             for (let index in items) {
                 const item = items[index];
                 if (item.kind === 'string' && item.type === 'text/html') {
