@@ -14,8 +14,8 @@
         if (
             typeof window.proseMirrorIsActive !== 'undefined'
             && window.proseMirrorIsActive === true
-            && document.activeElement.tagName === 'div'
-            && document.activeElement.classList.contains('Prosemirror-focused')
+            && document.activeElement.tagName === 'DIV'
+            && document.activeElement.classList.contains('ProseMirror-focused')
         ) {
             for (let index in items) {
                 const item = items[index];
