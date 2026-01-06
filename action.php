@@ -29,8 +29,26 @@ class action_plugin_imgpaste extends ActionPlugin
     public function register(EventHandler $controller)
     {
         $controller->register_hook('AJAX_CALL_UNKNOWN', 'BEFORE', $this, 'handleAjaxUpload');
+        $controller->register_hook('TPL_METAHEADER_OUTPUT', 'BEFORE', $this, 'exportConfigToJS');
     }
 
+    /**
+     * Inject configuration variable directly into the HTML head
+     *
+     * @param Event $event
+     */
+    public function exportConfigToJS(Event $event)
+    {
+        $show_prompt = $this->getConf('show_rename_prompt') ? '1' : '0';
+        
+        // Injecting an inline script to ensure the config is available immediately
+        $event->data['script'][] = [
+            'type' => 'text/javascript',
+            '_data' => "var plugin_imgpaste_show_prompt = '$show_prompt';",
+            'data' => "var plugin_imgpaste_show_prompt = '$show_prompt';",
+            '_scope' => 'all'
+        ];
+    }
 
     /**
      * Creates a new file from the given data URL
@@ -113,7 +131,12 @@ class action_plugin_imgpaste extends ActionPlugin
 
         // prepare file names
         $tempname = $this->storetemp($data);
-        $filename = $this->createFileName($INPUT->post->str('id'), $mimetypes[$type], $_SERVER['REMOTE_USER']);
+        $filename = $this->createFileName(
+            $INPUT->post->str('id'), 
+            $mimetypes[$type], 
+            $_SERVER['REMOTE_USER'], 
+            $INPUT->post->str('name')
+        );
 
         // check ACLs
         $auth = auth_quickaclcheck($filename);
@@ -150,29 +173,37 @@ class action_plugin_imgpaste extends ActionPlugin
      * @param string $pageid the original page the paste event happend on
      * @param string $ext the extension of the file
      * @param string $user the currently logged in user
+     * @param string $customName optional user provided name
      * @return string
      */
-    protected function createFileName($pageid, $ext, $user)
+    protected function createFileName($pageid, $ext, $user, $customName = '')
     {
         $unique = '';
-        $filename = $this->getConf('filename');
-        $filename = str_replace(
-            [
-                '@NS@',
-                '@ID@',
-                '@USER@',
-                '@PAGE@',
-            ],
-            [
-                getNS($pageid),
-                $pageid,
-                $user,
-                noNS($pageid),
-            ],
-            $filename
-        );
-        $filename = strftime($filename);
-        $filename = cleanID($filename);
+
+        // If user provided a name, use it as the base
+        if (!empty($customName)) {
+            $filename = cleanID(getNS($pageid) . ':' . $customName);
+        } else {
+            $filename = $this->getConf('filename');
+            $filename = str_replace(
+                [
+                    '@NS@',
+                    '@ID@',
+                    '@USER@',
+                    '@PAGE@',
+                ],
+                [
+                    getNS($pageid),
+                    $pageid,
+                    $user,
+                    noNS($pageid),
+                ],
+                $filename
+            );
+            $filename = strftime($filename);
+            $filename = cleanID($filename);
+        }
+
         while (media_exists($filename . $unique . '.' . $ext)) {
             $unique = (int)$unique + 1;
         }

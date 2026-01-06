@@ -5,4 +5,5 @@
  * @author Andreas Gohr <gohr@cosmocode.de>
  */
 
-$conf['filename']    = '@NS@:pasted:%Y%m%d-%H%M%S';
+$conf['filename'] = '@NS@:pasted:%Y%m%d-%H%M%S';
+$conf['show_rename_prompt'] = 0;

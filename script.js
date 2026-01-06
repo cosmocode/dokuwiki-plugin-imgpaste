@@ -42,11 +42,16 @@
             const item = items[index];
 
             if (item.kind === 'file') {
+
+                // attemp to get original file name
+                const file = item.getAsFile();
+                const originalName = file.name ? file.name.replace(/\.[^/.]+$/, "") : "";
+
                 const reader = new FileReader();
                 reader.onload = event => {
-                    uploadData(event.target.result);
+                    uploadData(event.target.result, originalName);
                 };
-                reader.readAsDataURL(item.getAsFile());
+                reader.readAsDataURL(file);
 
                 // we had at least one file, prevent default
                 e.preventDefault();
@@ -85,16 +90,24 @@
         const div = document.createElement('div');
         div.innerHTML = html;
         const imgs = Array.from(div.querySelectorAll('img'));
-        await Promise.all(imgs.map(async img => {
+        const showPrompt = (typeof plugin_imgpaste_show_prompt !== 'undefined') && (String(plugin_imgpaste_show_prompt) === '1');
+
+        await Promise.all(imgs.map(async (img, index) => {
             if (img.src.startsWith(DOKU_BASE)) return; // skip local images
             if (!img.src.match(/^(https?:\/\/|data:)/i)) return; // we only handle http(s) and data URLs
 
             try {
+                let name = "";
+                if (showPrompt) {
+                    name = window.prompt("Name for image " + (index + 1) + ":", "");
+                    if (name === null) name = "";
+                }
+
                 let result;
                 if (img.src.startsWith('data:')) {
-                    result = await uploadDataURL(img.src);
+                    result = await uploadDataURL(img.src, name);
                 } else {
-                    result = await downloadData(img.src);
+                    result = await downloadData(img.src, name);
                 }
 
                 img.src = result.url;
@@ -113,13 +126,15 @@
      * Tell the backend to download the given URL and return the new ID
      *
      * @param {string} imgUrl
+     * @param {string} name optional custom name
      * @returns {Promise<object>} The JSON response
      */
-    async function downloadData(imgUrl) {
+    async function downloadData(imgUrl, name) {
         const formData = new FormData();
         formData.append('call', 'plugin_imgpaste');
         formData.append('url', imgUrl);
         formData.append('id', JSINFO.id);
+        if (name) formData.append('name', name);
 
         const response = await fetch(
             DOKU_BASE + 'lib/exe/ajax.php',
@@ -140,13 +155,15 @@
      * Tell the backend to create a file from the given dataURL and return the new ID
      *
      * @param {string} dataURL
+     * @param {string} name optional custom name
      * @returns {Promise<object>} The JSON response
      */
-    async function uploadDataURL(dataURL) {
+    async function uploadDataURL(dataURL, name) {
         const formData = new FormData();
         formData.append('call', 'plugin_imgpaste');
         formData.append('data', dataURL);
         formData.append('id', JSINFO.id);
+        if (name) formData.append('name', name);
 
         const response = await fetch(
             DOKU_BASE + 'lib/exe/ajax.php',
@@ -167,12 +184,24 @@
      * Uploads the given dataURL to the server and displays a progress dialog, inserting the syntax on success
      *
      * @param {string} dataURL
+     * @param {string} suggestedName Optional name from the original file
      */
-    async function uploadData(dataURL) {
+    async function uploadData(dataURL, suggestedName = "") {
+        let name = "";
+        
+        // Determine if renaming prompt should be shown
+        const showPrompt = (typeof plugin_imgpaste_show_prompt !== 'undefined') && (String(plugin_imgpaste_show_prompt) === '1');
+        
+        if (showPrompt) {
+            // Use suggestedName (if any) as the default value in the prompt
+            name = window.prompt("Enter image name (leave empty for default):", suggestedName);
+            if (name === null) return; // Abort upload if user cancels
+        }
+
         const box = progressDialog();
 
         try {
-            const data = await uploadDataURL(dataURL);
+            const data = await uploadDataURL(dataURL, name);
             box.classList.remove('info');
             box.classList.add('success');
             box.innerText = data.message;

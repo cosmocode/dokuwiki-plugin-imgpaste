@@ -7,4 +7,4 @@
 
 
 $meta['filename'] = array('string');
-
+$meta['show_rename_prompt'] = array('onoff');
