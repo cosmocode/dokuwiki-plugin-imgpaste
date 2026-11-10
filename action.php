@@ -44,7 +44,14 @@ class action_plugin_imgpaste extends ActionPlugin
         $event->stopPropagation();
 
         global $INPUT;
+        global $lang;
         try {
+            if (!checkSecurityToken()) throw new PasteException($lang['uploadfail'], 403);
+
+            // check upload permission before any data is fetched or processed
+            $basename = $this->createBaseName($INPUT->post->str('id'), $INPUT->server->str('REMOTE_USER'));
+            if (auth_quickaclcheck($basename) < AUTH_UPLOAD) throw new PasteException($lang['uploadfail'], 403);
+
             if ($INPUT->has('url')) {
                 [$data, $type] = $this->externalUrlToData($INPUT->post->str('url'));
             } else {
@@ -155,6 +162,22 @@ class action_plugin_imgpaste extends ActionPlugin
     protected function createFileName($pageid, $ext, $user)
     {
         $unique = '';
+        $filename = $this->createBaseName($pageid, $user);
+        while (media_exists($filename . $unique . '.' . $ext)) {
+            $unique = (int)$unique + 1;
+        }
+        return $filename . $unique . '.' . $ext;
+    }
+
+    /**
+     * Create the media ID for the new file from the configured pattern, without extension
+     *
+     * @param string $pageid the original page the paste event happend on
+     * @param string $user the currently logged in user
+     * @return string
+     */
+    protected function createBaseName($pageid, $user)
+    {
         $filename = $this->getConf('filename');
         $filename = str_replace(
             [
@@ -172,11 +195,7 @@ class action_plugin_imgpaste extends ActionPlugin
             $filename
         );
         $filename = strftime($filename);
-        $filename = cleanID($filename);
-        while (media_exists($filename . $unique . '.' . $ext)) {
-            $unique = (int)$unique + 1;
-        }
-        return $filename . $unique . '.' . $ext;
+        return cleanID($filename);
     }
 
     /**

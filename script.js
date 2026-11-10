@@ -110,6 +110,16 @@
     }
 
     /**
+     * Get the CSRF token from the edit form
+     *
+     * @returns {string}
+     */
+    function getSecurityToken() {
+        const input = document.querySelector('#dw__editform input[name=sectok]');
+        return input ? input.value : '';
+    }
+
+    /**
      * Tell the backend to download the given URL and return the new ID
      *
      * @param {string} imgUrl
@@ -120,6 +130,7 @@
         formData.append('call', 'plugin_imgpaste');
         formData.append('url', imgUrl);
         formData.append('id', JSINFO.id);
+        formData.append('sectok', getSecurityToken());
 
         const response = await fetch(
             DOKU_BASE + 'lib/exe/ajax.php',
@@ -147,6 +158,7 @@
         formData.append('call', 'plugin_imgpaste');
         formData.append('data', dataURL);
         formData.append('id', JSINFO.id);
+        formData.append('sectok', getSecurityToken());
 
         const response = await fetch(
             DOKU_BASE + 'lib/exe/ajax.php',
